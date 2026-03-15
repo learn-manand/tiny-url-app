@@ -10,12 +10,25 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngular",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:4200", "http://localhost")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowAngular");
 
 app.MapPost("api/urls", (
     CreateShortUrlRequest request,
@@ -101,6 +114,49 @@ app.MapGet("/r/{shortCode}", (string shortCode, AppDbContext dbContext) =>
     dbContext.SaveChanges();
 
     return Results.Redirect(item.OriginalUrl);
+});
+
+app.MapGet("api/urls/search", (string term, AppDbContext dbContext, HttpContext httpContext) =>
+{
+    if (string.IsNullOrWhiteSpace(term))
+    {
+        return Results.BadRequest("Search term is required.");
+    }
+
+    var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+
+    var items = dbContext.ShortUrls
+        .Where(x =>
+            x.OriginalUrl.Contains(term) ||
+            x.ShortCode.Contains(term))
+        .OrderByDescending(x => x.CreatedAt)
+        .Select(x => new ShortUrlResponse
+        {
+            Id = x.Id,
+            OriginalUrl = x.OriginalUrl,
+            ShortCode = x.ShortCode,
+            ShortUrl = $"{baseUrl}/r/{x.ShortCode}",
+            IsPrivate = x.IsPrivate,
+            ClickCount = x.ClickCount
+        })
+        .ToList();
+
+    return Results.Ok(items);
+});
+
+app.MapDelete("api/urls/{id}", (Guid id, AppDbContext dbContext) =>
+{
+    var item = dbContext.ShortUrls.FirstOrDefault(x => x.Id == id);
+
+    if (item == null)
+    {
+        return Results.NotFound("URL not found.");
+    }
+
+    dbContext.ShortUrls.Remove(item);
+    dbContext.SaveChanges();
+
+    return Results.NoContent();
 });
 
 using (var scope = app.Services.CreateScope())

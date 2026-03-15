@@ -14,6 +14,9 @@ WORKDIR /app
 
 COPY --from=build /app/out .
 
+# Listen on all interfaces
+ENV ASPNETCORE_URLS=http://+:80
+
 EXPOSE 80
 
 ENTRYPOINT ["dotnet", "TinyUrl.Api.dll"]

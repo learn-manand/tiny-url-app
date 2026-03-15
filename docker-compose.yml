@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  tinyurl-api:
+    build: ./backend/TinyUrl.Api
+    container_name: tinyurl-api
+    ports:
+      - "8081:80"   # backend exposed outside
+    networks:
+      - tinyurl-net
+
+  frontend:
+    build: ./frontend
+    container_name: tinyurl-frontend
+    ports:
+      - "4200:80"   # Angular app served via Nginx
+    depends_on:
+      - tinyurl-api
+    networks:
+      - tinyurl-net
+
+networks:
+  tinyurl-net:
+    driver: bridge
