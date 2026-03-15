@@ -34,10 +34,9 @@ app.MapPost("api/urls", (
     }
 
     string shortCode;
-    ShortCodeService shortCodeService = new ShortCodeService();
     do
     {
-        shortCode = shortCodeService.GenerateCode(6);
+        shortCode = ShortCodeService.GenerateCode(6);
     }
     while (dbContext.ShortUrls.Any(x => x.ShortCode == shortCode));
 

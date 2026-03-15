@@ -10,7 +10,7 @@ namespace TinyUrl.Api.services
     {
         private const string AllowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-        public string GenerateCode(int length = 6)
+        public static string GenerateCode(int length = 6)
         {
             var chars = new char[length];
             var buffer = new byte[length];
