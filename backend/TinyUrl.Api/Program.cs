@@ -103,7 +103,7 @@ app.MapGet("api/urls/public", (AppDbContext dbContext, HttpContext httpContext) 
 app.MapGet("/r/{shortCode}", (string shortCode, AppDbContext dbContext) =>
 {
     var item = dbContext.ShortUrls
-        .FirstOrDefault(x => x.ShortCode == shortCode);
+        .SingleOrDefault(x => x.ShortCode == shortCode);
 
     if (item == null)
     {
@@ -116,19 +116,26 @@ app.MapGet("/r/{shortCode}", (string shortCode, AppDbContext dbContext) =>
     return Results.Redirect(item.OriginalUrl);
 });
 
-app.MapGet("api/urls/search", (string term, AppDbContext dbContext, HttpContext httpContext) =>
+app.MapGet("api/urls/search", (string? term, AppDbContext dbContext, HttpContext httpContext) =>
 {
-    if (string.IsNullOrWhiteSpace(term))
-    {
-        return Results.BadRequest("Search term is required.");
-    }
-
     var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
 
-    var items = dbContext.ShortUrls
-        .Where(x =>
+    var query = dbContext.ShortUrls.AsQueryable();
+
+    // When search text exists
+    if (!string.IsNullOrWhiteSpace(term))
+    {
+        query = query.Where(x =>
             x.OriginalUrl.Contains(term) ||
-            x.ShortCode.Contains(term))
+            x.ShortCode.Contains(term));
+    }
+    else
+    {
+        // When search box is cleared to show public URLs again
+        query = query.Where(x => !x.IsPrivate);
+    }
+
+    var items = query
         .OrderByDescending(x => x.CreatedAt)
         .Select(x => new ShortUrlResponse
         {
