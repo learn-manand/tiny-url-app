@@ -9,25 +9,25 @@ import { CreateUrlRequest } from '../models/create-url-request.model';
 })
 export class UrlService {
 
-  private baseUrl = `${environment.apiUrl}/urls`;
+  private baseUrl = environment.apiUrl;
+
+  private readonly endpoints = {
+    add: '/api/add',
+    public: '/api/public',
+    delete: '/api/delete'
+  } as const;
 
   constructor(private http: HttpClient) {}
 
   create(request: CreateUrlRequest){
-    return this.http.post<UrlItem>(this.baseUrl, request);
+    return this.http.post<UrlItem>(`${this.baseUrl}${this.endpoints.add}`, request);
   }
 
   getPublicUrls(){
-    return this.http.get<UrlItem[]>(`${this.baseUrl}/public`);
+    return this.http.get<UrlItem[]>(`${this.baseUrl}${this.endpoints.public}`);
   }
 
-  search(searchTerm: string){
-    return this.http.get<UrlItem[]>(
-      `${this.baseUrl}/search?term=${searchTerm}`
-    );
-  }
-
-  delete(id: number){
-    return this.http.delete(`${this.baseUrl}/${id}`);
+  delete(code: string){
+    return this.http.delete(`${this.baseUrl}${this.endpoints.delete}/${code}`);
   }
 }

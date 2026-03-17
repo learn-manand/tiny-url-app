@@ -24,13 +24,8 @@ export class UrlState {
       .subscribe(() => this.load());
   }
 
-  search(term: string){
-    this.service.search(term)
-      .subscribe(data => this.urlsSubject.next(data));
-  }
-
-  delete(id: number){
-    this.service.delete(id)
+  delete(code: string){
+    this.service.delete(code)
       .subscribe(() => this.load());
   }
 }

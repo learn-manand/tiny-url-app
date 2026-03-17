@@ -1,68 +1,66 @@
 <div class="container">
 
-<h1>Tiny URL</h1>
+  <h1>Tiny URL</h1>
 
-<div class="create-box">
+  <div class="create-box">
 
-<input
-  type="text"
-  placeholder="Enter URL to shorten"
-  [(ngModel)]="url"
-  name="url"
-  appUrlPattern
-  #urlModel="ngModel"
-/>
+    <input
+      type="text"
+      placeholder="Enter URL to shorten"
+      [(ngModel)]="url"
+      name="url"
+      appUrlPattern
+      #urlModel="ngModel"
+    />
 
-<label>
-  <input type="checkbox" [(ngModel)]="isPrivate">
-  Private
-</label>
+    <label>
+      <input type="checkbox" [(ngModel)]="isPrivate">
+      Private
+    </label>
 
-<button (click)="create()" [disabled]="urlModel.invalid">
-  Generate
-</button>
+    <button (click)="create()" [disabled]="urlModel.invalid">
+      Generate
+    </button>
 
-</div>
+  </div>
 
-<div class="create-error" *ngIf="urlModel.errors?.['invalidUrl'] && urlModel.touched">
-  URL must start with http:// or https://
-</div>
+  <div class="create-error" *ngIf="urlModel.errors?.['invalidUrl'] && urlModel.touched">
+    URL must start with http:// or https://
+  </div>
 
-<h3>Public URLs</h3>
+  <h3>Public URLs</h3>
 
-<div class="search-box">
+  <div class="search-box">
 
-<input
-  type="text"
-  placeholder="Search URLs..."
-  [(ngModel)]="searchTerm"
-  (input)="search()"
-/>
+    <input
+      type="text"
+      placeholder="Search URLs..."
+      [(ngModel)]="searchTerm"
+      (input)="search()"
+    />
 
-</div>
+  </div>
 
-<div *ngFor="let u of urls$ | async" class="url-card">
+  <div *ngFor="let u of filteredUrls$ | async" class="url-card">
 
-<div class="short-url">
+    <div class="short-url">
 
-<a [href]="u.shortUrl" target="_blank">
-{{u.shortUrl}}
-</a>
+      <a [href]="u.shortUrl" target="_blank">
+        {{u.shortUrl}}
+      </a>
 
-<button (click)="copy(u.shortUrl, u.id)">Copy</button>
+      <button (click)="copy(u.shortUrl)">Copy</button>
 
-<span *ngIf="copiedId == u.id">Copied!</span>
+      <span>{{u.clickCount}} clicks</span>
 
-<span>{{u.clickCount}} clicks</span>
+      <button (click)="delete(u.shortCode)">Delete</button>
 
-<button (click)="delete(u.id)">Delete</button>
+    </div>
 
-</div>
+    <div class="original-url">
+      {{u.originalUrl}}
+    </div>
 
-<div class="original-url">
-{{u.originalUrl}}
-</div>
-
-</div>
+  </div>
 
 </div>

@@ -30,7 +30,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAngular");
 
-app.MapPost("api/urls", (
+app.MapPost("/api/add", (
     CreateShortUrlRequest request,
     AppDbContext dbContext,
     HttpContext httpContext) =>
@@ -65,7 +65,7 @@ app.MapPost("api/urls", (
     };
 
     dbContext.ShortUrls.Add(shortUrlEntity);
-    dbContext.SaveChangesAsync();
+    dbContext.SaveChanges();
 
     var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
     var response = new ShortUrlResponse
@@ -73,15 +73,15 @@ app.MapPost("api/urls", (
         Id = shortUrlEntity.Id,
         OriginalUrl = shortUrlEntity.OriginalUrl,
         ShortCode = shortUrlEntity.ShortCode,
-        ShortUrl = $"{baseUrl}/r/{shortUrlEntity.ShortCode}",
+        ShortUrl = $"{baseUrl}/{shortUrlEntity.ShortCode}",
         IsPrivate = shortUrlEntity.IsPrivate,
         ClickCount = shortUrlEntity.ClickCount
     };
 
-    return Results.Created($"/api/urls/{shortUrlEntity.Id}", response);
+    return Results.Created($"/api/add/{shortUrlEntity.ShortCode}", response);
 });
 
-app.MapGet("api/urls/public", (AppDbContext dbContext, HttpContext httpContext) => {
+app.MapGet("/api/public", (AppDbContext dbContext, HttpContext httpContext) => {
     var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
     var items = dbContext.ShortUrls
         .Where(x => !x.IsPrivate)
@@ -91,7 +91,7 @@ app.MapGet("api/urls/public", (AppDbContext dbContext, HttpContext httpContext) 
             Id = x.Id,
             OriginalUrl = x.OriginalUrl,
             ShortCode = x.ShortCode,
-            ShortUrl = $"{baseUrl}/r/{x.ShortCode}",
+            ShortUrl = $"{baseUrl}/{x.ShortCode}",
             IsPrivate = x.IsPrivate,
             ClickCount = x.ClickCount
         })
@@ -100,10 +100,10 @@ app.MapGet("api/urls/public", (AppDbContext dbContext, HttpContext httpContext) 
     return Results.Ok(items);
 });
 
-app.MapGet("/r/{shortCode}", (string shortCode, AppDbContext dbContext) =>
+app.MapGet("/{code}", (string code, AppDbContext dbContext) =>
 {
     var item = dbContext.ShortUrls
-        .SingleOrDefault(x => x.ShortCode == shortCode);
+        .FirstOrDefault(x => x.ShortCode == code);
 
     if (item == null)
     {
@@ -116,54 +116,48 @@ app.MapGet("/r/{shortCode}", (string shortCode, AppDbContext dbContext) =>
     return Results.Redirect(item.OriginalUrl);
 });
 
-app.MapGet("api/urls/search", (string? term, AppDbContext dbContext, HttpContext httpContext) =>
+app.MapDelete("/api/delete/{code}", (string code, AppDbContext dbContext) =>
 {
-    var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
-
-    var query = dbContext.ShortUrls.AsQueryable();
-
-    // When search text exists
-    if (!string.IsNullOrWhiteSpace(term))
-    {
-        query = query.Where(x =>
-            x.OriginalUrl.Contains(term) ||
-            x.ShortCode.Contains(term));
-    }
-    else
-    {
-        // When search box is cleared to show public URLs again
-        query = query.Where(x => !x.IsPrivate);
-    }
-
-    var items = query
-        .OrderByDescending(x => x.CreatedAt)
-        .Select(x => new ShortUrlResponse
-        {
-            Id = x.Id,
-            OriginalUrl = x.OriginalUrl,
-            ShortCode = x.ShortCode,
-            ShortUrl = $"{baseUrl}/r/{x.ShortCode}",
-            IsPrivate = x.IsPrivate,
-            ClickCount = x.ClickCount
-        })
-        .ToList();
-
-    return Results.Ok(items);
-});
-
-app.MapDelete("api/urls/{id}", (Guid id, AppDbContext dbContext) =>
-{
-    var item = dbContext.ShortUrls.FirstOrDefault(x => x.Id == id);
+    var item = dbContext.ShortUrls
+        .FirstOrDefault(x => x.ShortCode == code);
 
     if (item == null)
-    {
-        return Results.NotFound("URL not found.");
-    }
+        return Results.NotFound("Not found");
 
     dbContext.ShortUrls.Remove(item);
     dbContext.SaveChanges();
 
     return Results.NoContent();
+});
+
+app.MapDelete("/api/delete-all", (AppDbContext dbContext) =>
+{
+    var items = dbContext.ShortUrls.ToList();
+
+    dbContext.ShortUrls.RemoveRange(items);
+    dbContext.SaveChanges();
+
+    return Results.NoContent();
+});
+
+app.MapPut("/api/update/{code}", (
+    string code,
+    CreateShortUrlRequest request,
+    AppDbContext dbContext) =>
+{
+    var item = dbContext.ShortUrls
+        .FirstOrDefault(x => x.ShortCode == code);
+
+    if (item == null)
+        return Results.NotFound();
+
+    item.OriginalUrl = request.OriginalUrl;
+    item.IsPrivate = request.IsPrivate;
+    item.ModifiedAt = DateTime.UtcNow;
+
+    dbContext.SaveChanges();
+
+    return Results.Ok(item);
 });
 
 using (var scope = app.Services.CreateScope())

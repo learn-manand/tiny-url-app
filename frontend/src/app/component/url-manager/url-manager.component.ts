@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, BehaviorSubject, combineLatest, map } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { UrlState } from '../../state/url.state';
 import { UrlItem } from '../../models/url-item.model';
 import { CreateUrlRequest } from '../../models/create-url-request.model';
@@ -12,20 +13,42 @@ import { CreateUrlRequest } from '../../models/create-url-request.model';
 })
 export class UrlManagerComponent implements OnInit {
 
-  urls$!: Observable<UrlItem[]>;
+  allUrls$!: Observable<UrlItem[]>;
+  filteredUrls$!: Observable<UrlItem[]>;
 
   url = '';
   isPrivate = false;
   searchTerm = '';
-  copiedId: number | null = null;
+  private searchTerm$ = new BehaviorSubject<string>('');
 
 
-  constructor(private state: UrlState) {}
+  constructor(private state: UrlState, private snackBar: MatSnackBar) {}
 
 
   ngOnInit(): void {
-    this.urls$ = this.state.urls$;
+    this.allUrls$ = this.state.urls$;
+    
+    this.filteredUrls$ = combineLatest([
+      this.allUrls$,
+      this.searchTerm$
+    ]).pipe(
+    map(([urls, term]) => {
+        if (!term) return urls;
+
+        term = term.toLowerCase();
+
+        return urls.filter(u =>
+          u.originalUrl.toLowerCase().includes(term) ||
+          u.shortUrl.toLowerCase().includes(term)
+        );
+      })
+    );
+
     this.state.load();
+
+    window.addEventListener('focus', () => {
+      this.state.load();
+    });
   }
 
   create(){
@@ -41,16 +64,20 @@ export class UrlManagerComponent implements OnInit {
   }
 
   search(){
-    this.state.search(this.searchTerm);
+    this.searchTerm$.next(this.searchTerm);
   }
 
-  delete(id: number){
-    this.state.delete(id);
+  delete(code: string){
+    this.state.delete(code);
   }
 
-  copy(url: string, id: number){
+  copy(url: string){
     navigator.clipboard.writeText(url);
-    this.copiedId = id;
-    setTimeout(() => this.copiedId = null, 2000);
+
+    this.snackBar.open('Copied to clipboard!', 'Close', {
+    duration: 2000,
+    horizontalPosition: 'center',
+    verticalPosition: 'bottom'
+  });
   }
 }

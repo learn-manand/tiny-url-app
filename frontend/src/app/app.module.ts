@@ -5,6 +5,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { App } from './app'
 import { UrlManagerComponent } from './component/url-manager/url-manager.component'
 import { UrlPatternValidatorDirective } from './validators/url-pattern.validator';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 
 @NgModule({
   declarations: [
@@ -15,7 +16,8 @@ import { UrlPatternValidatorDirective } from './validators/url-pattern.validator
   imports: [
     BrowserModule,
     FormsModule,
-    HttpClientModule
+    HttpClientModule,
+    MatSnackBarModule
   ],
   bootstrap: [App]
 })
