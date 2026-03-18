@@ -33,6 +33,18 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader());
 });
 
+builder.Services.AddSingleton<IAppLogger>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    if (env.IsDevelopment())
+        return new DevLogger();
+    else
+        return new BlobLogger(
+            config["AzureStorage:ConnectionString"],
+            config["AzureStorage:BlobContainerName"]
+        );
+});
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -45,16 +57,19 @@ app.UseCors("AllowAll");
 app.MapPost("/api/add", (
     CreateShortUrlRequest request,
     AppDbContext dbContext,
-    HttpContext httpContext) =>
+    HttpContext httpContext,
+    IAppLogger logger) =>
 {
     if (string.IsNullOrWhiteSpace(request.OriginalUrl))
     {
+        logger.Log("Add URL failed: OriginalUrl is empty.");
         return Results.BadRequest("OriginalUrl is required.");
     }
 
     if (!Uri.TryCreate(request.OriginalUrl, UriKind.Absolute, out var uri) ||
         (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
     {
+        logger.Log($"Add URL failed: Invalid URL '{request.OriginalUrl}'.");
         return Results.BadRequest("Please provide a valid HTTP/HTTPS URL.");
     }
 
@@ -90,10 +105,12 @@ app.MapPost("/api/add", (
         ClickCount = shortUrlEntity.ClickCount
     };
 
+    logger.Log($"New short URL created: {response.ShortUrl} -> {response.OriginalUrl}");
+
     return Results.Created($"/api/add/{shortUrlEntity.ShortCode}", response);
 });
 
-app.MapGet("/api/public", (AppDbContext dbContext, HttpContext httpContext) => {
+app.MapGet("/api/public", (AppDbContext dbContext, HttpContext httpContext, IAppLogger logger) => {
     var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
     var items = dbContext.ShortUrls
         .Where(x => !x.IsPrivate)
@@ -109,45 +126,57 @@ app.MapGet("/api/public", (AppDbContext dbContext, HttpContext httpContext) => {
         })
         .ToList();
 
+    logger.Log($"Public URLs fetched: {items.Count} items");
+
     return Results.Ok(items);
 });
 
-app.MapGet("/{code}", (string code, AppDbContext dbContext) =>
+app.MapGet("/{code}", (string code, AppDbContext dbContext, IAppLogger logger) =>
 {
     var item = dbContext.ShortUrls
         .FirstOrDefault(x => x.ShortCode == code);
 
     if (item == null)
     {
+        logger.Log($"Redirect failed: Short code '{code}' not found.");
         return Results.NotFound("Short URL not found.");
     }
 
     item.ClickCount += 1;
     dbContext.SaveChanges();
 
+    logger.Log($"Redirected short code '{code}' to '{item.OriginalUrl}'");
+
     return Results.Redirect(item.OriginalUrl);
 });
 
-app.MapDelete("/api/delete/{code}", (string code, AppDbContext dbContext) =>
+app.MapDelete("/api/delete/{code}", (string code, AppDbContext dbContext, IAppLogger logger) =>
 {
     var item = dbContext.ShortUrls
         .FirstOrDefault(x => x.ShortCode == code);
 
     if (item == null)
+    {
+        logger.Log($"Delete failed: Short code '{code}' not found.");
         return Results.NotFound("Not found");
+    }
 
     dbContext.ShortUrls.Remove(item);
     dbContext.SaveChanges();
 
+    logger.Log($"Deleted short code '{code}' mapping to '{item.OriginalUrl}'");
+
     return Results.NoContent();
 });
 
-app.MapDelete("/api/delete-all", (AppDbContext dbContext) =>
+app.MapDelete("/api/delete-all", (AppDbContext dbContext, IAppLogger logger) =>
 {
     var items = dbContext.ShortUrls.ToList();
 
     dbContext.ShortUrls.RemoveRange(items);
     dbContext.SaveChanges();
+
+    logger.Log($"Deleted all short URLs: {items.Count} items");
 
     return Results.NoContent();
 });
@@ -155,19 +184,25 @@ app.MapDelete("/api/delete-all", (AppDbContext dbContext) =>
 app.MapPut("/api/update/{code}", (
     string code,
     CreateShortUrlRequest request,
-    AppDbContext dbContext) =>
+    AppDbContext dbContext,
+    IAppLogger logger) =>
 {
     var item = dbContext.ShortUrls
         .FirstOrDefault(x => x.ShortCode == code);
 
     if (item == null)
+    {
+        logger.Log($"Update failed: Short code '{code}' not found.");
         return Results.NotFound();
+    }
 
     item.OriginalUrl = request.OriginalUrl;
     item.IsPrivate = request.IsPrivate;
     item.ModifiedAt = DateTime.UtcNow;
 
     dbContext.SaveChanges();
+
+    logger.Log($"Updated short code '{code}' -> {item.OriginalUrl}");
 
     return Results.Ok(item);
 });
