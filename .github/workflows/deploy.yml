@@ -1,0 +1,60 @@
+name: CI/CD TinyUrl App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKER_HUB_SHORTNAME: learnmanand
+      DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ env.DOCKER_HUB_PASSWORD }}
+
+      - name: Build & push backend image
+        run: |
+          docker build -t ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-backend:latest ./backend/TinyUrl.Api
+          docker push ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-backend:latest
+
+      - name: Build & push frontend image
+        run: |
+          docker build -t ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-frontend:latest ./frontend
+          docker push ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-frontend:latest
+
+      - name: Build & push function image
+        run: |
+          docker build -t ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-cleanup:latest ./infra/azure-function/CleanupJob
+          docker push ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-cleanup:latest
+
+      - name: Deploy backend to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: tinyurl-app
+          images: ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-backend:latest
+
+      - name: Deploy frontend to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: tinyurl-frontend-app
+          images: ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-frontend:latest
+
+      - name: Deploy cleanup function to Azure Function App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: tinyurl-cleanup
+          images: ${{ env.DOCKER_HUB_SHORTNAME }}/tinyurl-cleanup:latest
