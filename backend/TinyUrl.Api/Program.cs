@@ -7,20 +7,21 @@ using TinyUrl.Api.services;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var env = builder.Environment;
 
-if (builder.Environment.IsDevelopment())
+builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    // Local dev - SQLite
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlite(connectionString));
-}
-else
-{
-    // Production - Azure SQL
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer(connectionString));
-}
+    if (env.IsDevelopment())
+    {
+        // SQLite
+        options.UseSqlite(builder.Configuration.GetConnectionString("Sqlite"));
+    }
+    else
+    {
+        // Azure SQL Server
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    }
+});
 
 builder.Services.AddCors(options =>
 {
@@ -171,5 +172,11 @@ app.MapPut("/api/update/{code}", (
 
     return Results.Ok(item);
 });
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 app.Run();

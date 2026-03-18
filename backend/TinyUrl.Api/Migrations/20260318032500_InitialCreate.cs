@@ -13,13 +13,13 @@ namespace TinyUrl.Api.Migrations
                 name: "ShortUrls",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    OriginalUrl = table.Column<string>(type: "TEXT", maxLength: 2048, nullable: false),
-                    ShortCode = table.Column<string>(type: "TEXT", maxLength: 6, nullable: false),
-                    IsPrivate = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ClickCount = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ModifiedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OriginalUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: false),
+                    ShortCode = table.Column<string>(type: "nvarchar(6)", maxLength: 6, nullable: false),
+                    IsPrivate = table.Column<bool>(type: "bit", nullable: false),
+                    ClickCount = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
