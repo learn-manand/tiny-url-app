@@ -4,6 +4,7 @@ services:
   tinyurl-api:
     build: ./backend/TinyUrl.Api
     container_name: tinyurl-api
+    image: learnmanand/tinyurl-api:latest
     ports:
       - "8081:80"   # backend exposed outside
     networks:
@@ -12,6 +13,7 @@ services:
   frontend:
     build: ./frontend
     container_name: tinyurl-frontend
+    image: learnmanand/tinyurl-frontend:latest
     ports:
       - "4200:80"   # Angular app served via Nginx
     depends_on:
